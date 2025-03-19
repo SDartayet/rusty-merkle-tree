@@ -37,6 +37,10 @@ fn createMerkleTreeFromData<T: Hash>(data: Vec<T>) -> MerkleTreeNode {
     //When there's only one left, that one is the root, and I'm done
     //TODO: Currently only works if the vector size is a factor of two. Research further on how to appropriately handle cases where it isn't
     while current_layer.len() > 1 {
+
+        //If number of elements is odd, I clone the last element and add it as another block to hash
+        if current_layer.len() % 2 != 0 { current_layer.push(current_layer.last().unwrap().clone()); }
+
         let mut next_layer = Vec::new();
 
         let mut current_layer_iter = current_layer.iter();
@@ -91,6 +95,77 @@ mod tests {
         let mut hasher = DefaultHasher::new();
         test_int.hash(&mut hasher);
         assert_eq!(merkle_tree_42.hash.0, hasher.finish());
+
+    }
+
+    #[test]
+    fn merkle_tree_generation_works_for_uneven_amount_of_ints() {
+        let test_ints = vec![4,8,15,16,23];
+        let merkle_tree = createMerkleTreeFromData(test_ints);
+
+        let test_ints = vec![4,8,15,16,23];
+        let mut hashed_ints = Vec::new();
+
+        for int in test_ints.iter() {
+            let mut hasher = DefaultHasher::new();
+
+            int.hash(&mut hasher);
+            hashed_ints.push(hasher.finish());
+        }
+
+
+        
+        let mut hasher1 = DefaultHasher::new();
+        (hashed_ints[0] as u128 + hashed_ints[1] as u128).hash(&mut hasher1);
+        let hash1 = hasher1.finish();
+        
+
+        
+        let mut hasher2 = DefaultHasher::new();
+        (hashed_ints[2] as u128 + hashed_ints[3] as u128).hash(&mut hasher2);
+        let hash2 = hasher2.finish();
+
+        let mut hasher3 = DefaultHasher::new();
+        (hashed_ints[4] as u128 + hashed_ints[4] as u128).hash(&mut hasher3);
+        let hash3 = hasher3.finish();
+
+        let mut hasher4 = DefaultHasher::new();
+        (hash1 as u128 + hash2 as u128).hash(&mut hasher4);
+        let hash4 = hasher4.finish();
+
+        let mut hasher5 = DefaultHasher::new();
+        (hash3 as u128 + hash3 as u128).hash(&mut hasher5);
+        let hash5 = hasher5.finish();
+    
+
+        
+        let mut hasher_root = DefaultHasher::new();
+        (hash4 as u128 + hash5 as u128).hash(&mut hasher_root);
+        let hash_root = hasher_root.finish();
+        
+        
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[0]);
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[1]);
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[2]);
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[3]);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[4]);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[4]);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[4]);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[4]);
+
+
+
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().leftChild.unwrap().hash.0, hash1);
+        assert_eq!(merkle_tree.leftChild.clone().unwrap().rightChild.unwrap().hash.0, hash2);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().leftChild.unwrap().hash.0, hash3);
+        assert_eq!(merkle_tree.rightChild.clone().unwrap().rightChild.unwrap().hash.0, hash3);
+
+        
+        assert_eq!(merkle_tree.leftChild.unwrap().hash.0, hash4);
+        assert_eq!(merkle_tree.rightChild.unwrap().hash.0, hash5);
+
+
+        assert_eq!(merkle_tree.hash.0, hash_root);
 
     }
 
