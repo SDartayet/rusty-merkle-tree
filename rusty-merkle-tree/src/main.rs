@@ -10,8 +10,6 @@ struct HashValue(u64);
 
 
 //Struct definition for branch nodes of the Merkle Tree. 
-//Boxes are needed for the children due to it being a recursive data structure
-
 #[derive(Clone)]
 struct MerkleTreeNode{
     hash: HashValue,
@@ -175,6 +173,7 @@ mod tests {
 
     }
 }
+
 
 
 
