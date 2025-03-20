@@ -5,7 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 //Hashvalues are of type u64. The type aliasing to HashValue is there to help with code readability.
 //TODO: Implement Add for further declarativeness in code
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct HashValue(u64);
 
 
@@ -39,7 +39,17 @@ fn createMerkleTreeFromData<T: Hash>(data: Vec<T>) -> MerkleTreeNode {
     while current_layer.len() > 1 {
 
         //If number of elements is odd, I clone the last element and add it as another block to hash
-        if current_layer.len() % 2 != 0 { current_layer.push(current_layer.last().unwrap().clone()); }
+        if current_layer.len() % 2 != 0 { 
+
+            let last_element = current_layer.last().unwrap();
+            let last_element_clone = MerkleTreeNode {
+                hash: last_element.hash,
+                leftChild: last_element.leftChild.clone(),
+                rightChild: last_element.rightChild.clone()
+            };
+
+            current_layer.push(last_element_clone); 
+        }
 
         let mut next_layer = Vec::new();
 
