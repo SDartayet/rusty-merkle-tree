@@ -103,6 +103,33 @@ fn createMerkleTreeFromData<T: Hash>(data: Vec<T>) -> MerkleTree {
 }
 
 
+impl MerkleTree {
+    ///Takes an index with the position of the element if the leaves of the tree were made into an array
+    ///Returns an array of hashes, in order from lowest to highest layer in the tree they're in, needed to validate the element is part of the tree
+    fn createMerkleProof(&self, elem_index: u32) -> Vec<HashValue> {
+        let mut currentNode = self.root.clone();
+        let mut currentSubTreeIndex = elem_index;
+        let mut currentSubTreeLeaves = self.size;
+        let mut proof:Vec<HashValue> = vec![HashValue(0); f64::log2(currentSubTreeLeaves as f64) as usize + 1];
+        //let mut currentSubTreeIndex = elem_index;
+
+        while currentSubTreeLeaves > 1 {
+            proof[f64::log2(currentSubTreeLeaves as f64) as usize] = currentNode.hash;
+            if currentSubTreeIndex > currentSubTreeLeaves / 2 {
+                currentSubTreeIndex -= currentSubTreeLeaves / 2;
+                currentNode = *currentNode.rightChild.unwrap();
+            } else {
+                currentNode = *currentNode.leftChild.unwrap();
+            }
+            currentSubTreeLeaves /= 2;
+        } 
+        proof[f64::log2(currentSubTreeLeaves as f64) as usize] = currentNode.hash;
+
+
+        proof
+    }
+}
+
 
 fn main() {
 
@@ -272,6 +299,45 @@ mod tests {
 
 
         assert_eq!(merkle_tree.root.hash.0, hash_root);
+
+    }
+
+    #[test]
+    fn proof_generation_is_valid() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = createMerkleTreeFromData(test_ints.clone());
+
+        let proof = merkle_tree.createMerkleProof(3);
+
+        let mut hashed_ints = Vec::new();
+
+        for int in test_ints.iter() {
+            let mut hasher = DefaultHasher::new();
+
+            int.hash(&mut hasher);
+            hashed_ints.push(hasher.finish());
+        }
+        
+        let mut hasher1 = DefaultHasher::new();
+        (hashed_ints[0] as u128 + hashed_ints[1] as u128).hash(&mut hasher1);
+        let hash1 = hasher1.finish();
+        
+
+        
+        let mut hasher2 = DefaultHasher::new();
+        (hashed_ints[2] as u128 + hashed_ints[3] as u128).hash(&mut hasher2);
+        let hash2 = hasher2.finish();
+    
+
+        
+        let mut hasher_root = DefaultHasher::new();
+        (hash1 as u128 + hash2 as u128).hash(&mut hasher_root);
+        let hash_root = hasher_root.finish();
+        
+        
+        assert_eq!(proof[0].0, hashed_ints[2]);
+        assert_eq!(proof[1].0, hash2);
+        assert_eq!(proof[2].0, hash_root);
 
     }
 }
