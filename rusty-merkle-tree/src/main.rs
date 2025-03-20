@@ -37,6 +37,10 @@ fn createMerkleTreeFromData<T: Hash>(data: Vec<T>) -> MerkleTreeNode {
     //When there's only one left, that one is the root, and I'm done
     //TODO: Currently only works if the vector size is a factor of two. Research further on how to appropriately handle cases where it isn't
     while current_layer.len() > 1 {
+
+        //If number of elements is odd, I clone the last element and add it as another block to hash
+        if current_layer.len() % 2 != 0 { current_layer.push(current_layer.last().unwrap().clone()); }
+
         let mut next_layer = Vec::new();
 
         let mut current_layer_iter = current_layer.iter();
