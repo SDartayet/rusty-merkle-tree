@@ -5,12 +5,12 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 //Hashvalues are of type u64. The type aliasing to HashValue is there to help with code readability.
 //TODO: Implement Add for further declarativeness in code
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct HashValue(u64);
 
 
 //Struct definition for branch nodes of the Merkle Tree. 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct MerkleTreeNode{
     hash: HashValue,
     leftChild: Option<Box<MerkleTreeNode>>,
@@ -120,6 +120,48 @@ impl MerkleTree {
         } 
 
         proof
+    }
+
+    ///Add an element to an already existing tree
+    ///Takes an element of any hashable type
+    fn addElement<T: Hash>(&self, element: T) {
+
+        let mut currentNode = self.root.clone();
+        let mut repeats = false;
+
+        //I go through the entire Merkle Tree checking for redundant nodes 
+        //(those that are copies of others, simply to make the tree balanced)
+        //If I find a node that's a repeat, that means only the node that's leftmost on that subtree can be the hash of an original element
+        while(repeats) {
+            let leftChild = currentNode.leftChild.unwrap();
+            let rightChild = currentNode.rightChild.unwrap();
+            if leftChild.hash == rightChild.hash && leftChild.leftChild == rightChild.leftChild && leftChild.rightChild == leftChild.rightChild { repeats = true; }
+            currentNode = *rightChild.clone();
+        }
+
+        let mut hasher = DefaultHasher::new();
+        element.hash(&mut hasher);
+        let hash = HashValue(hasher.finish());
+
+        //If there are repeats, I go to the second element of the subtree; the leftmost element guaranteed to be a copy
+        if repeats {
+            while currentNode.leftChild != None {
+                currentNode = *currentNode.rightChild.unwrap().clone();
+            }
+            currentNode.rightChild.unwrap().hash = hash;
+        } 
+        
+        //If there are no repeats, I need to create a whole new subtree, and incorporate that to the tree
+        else {
+            let new_node = MerkleTreeNode::new(vec![element]);
+
+            let mut hasher = DefaultHasher::new();
+            (self.root.hash.0 as u128 + new_node.hash.0 as u128).hash(&mut hasher);
+            let new_root_hash = hasher.finish();
+
+            let new_root = MerkleTreeNode { hash: HashValue(new_root_hash), leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
+
+        }
     }
 
     ///Takes a vector of data of any type that can be hashed
