@@ -384,6 +384,12 @@ mod tests {
         assert_eq!(proof[1].0, hash1);
         
     }
+
+    #[test]
+    fn full_merkle_tree_can_add_element() {
+
+        
+    }
 }
 
 
