@@ -108,22 +108,25 @@ impl MerkleTree {
     ///Returns an array of hashes, in order from lowest to highest layer in the tree they're in, needed to validate the element is part of the tree
     fn createMerkleProof(&self, elem_index: u32) -> Vec<HashValue> {
         let mut currentNode = self.root.clone();
+        let mut proofHash: HashValue;
         let mut currentSubTreeIndex = elem_index;
         let mut currentSubTreeLeaves = self.size;
-        let mut proof:Vec<HashValue> = vec![HashValue(0); f64::log2(currentSubTreeLeaves as f64) as usize + 1];
+        let mut proof:Vec<HashValue> = vec![HashValue(0); f64::log2(currentSubTreeLeaves as f64) as usize];
         //let mut currentSubTreeIndex = elem_index;
 
         while currentSubTreeLeaves > 1 {
-            proof[f64::log2(currentSubTreeLeaves as f64) as usize] = currentNode.hash;
             if currentSubTreeIndex > currentSubTreeLeaves / 2 {
                 currentSubTreeIndex -= currentSubTreeLeaves / 2;
+                proofHash = currentNode.leftChild.unwrap().hash;
                 currentNode = *currentNode.rightChild.unwrap();
             } else {
+                proofHash = currentNode.rightChild.unwrap().hash;
                 currentNode = *currentNode.leftChild.unwrap();
             }
             currentSubTreeLeaves /= 2;
+            proof[f64::log2(currentSubTreeLeaves as f64) as usize] = proofHash;
         } 
-        proof[f64::log2(currentSubTreeLeaves as f64) as usize] = currentNode.hash;
+        
 
 
         proof
@@ -335,10 +338,9 @@ mod tests {
         let hash_root = hasher_root.finish();
         
         
-        assert_eq!(proof[0].0, hashed_ints[2]);
-        assert_eq!(proof[1].0, hash2);
-        assert_eq!(proof[2].0, hash_root);
-
+        assert_eq!(proof[0].0, hashed_ints[3]);
+        assert_eq!(proof[1].0, hash1);
+        
     }
 }
 
