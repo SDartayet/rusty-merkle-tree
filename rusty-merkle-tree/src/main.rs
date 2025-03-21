@@ -5,8 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 //Hashvalues are of type u64. The type aliasing to HashValue is there to help with code readability.
 //TODO: Implement Add for further declarativeness in code
 
-#[derive(Clone, Copy, PartialEq)]
-struct HashValue(u64);
+type HashValue = u64;
 
 
 //Struct definition for branch nodes of the Merkle Tree. 
@@ -41,7 +40,7 @@ impl MerkleTreeNode {
             //For now I use the default hasher; could be made parametric to choose a hashing function
             let mut hasher = DefaultHasher::new();
             block.hash(&mut hasher);
-            current_layer.push(MerkleTreeNode{ hash: HashValue(hasher.finish()), leftChild: None, rightChild: None } );
+            current_layer.push(MerkleTreeNode{ hash: hasher.finish(), leftChild: None, rightChild: None } );
         }
 
 
@@ -75,12 +74,12 @@ impl MerkleTreeNode {
                 let mut hasher = DefaultHasher::new();
 
                 //Values need to be casted to u128 to prevent overflow
-                (node_left.hash.0 as u128 + node_right.hash.0 as u128).hash(&mut hasher);
+                (node_left.hash as u128 + node_right.hash as u128).hash(&mut hasher);
 
                 let hash_sum = hasher.finish();
 
                 //Create the new node and push it onto the next layer
-                let new_node = MerkleTreeNode { hash: HashValue(hash_sum), leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
+                let new_node = MerkleTreeNode { hash: hash_sum, leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
                 next_layer.push(new_node); 
             }
 
@@ -103,7 +102,7 @@ impl MerkleTree {
         let mut proofHash: HashValue;
         let mut currentSubTreeIndex = elem_index;
         let mut currentSubTreeLeaves = self.size;
-        let mut proof:Vec<HashValue> = vec![HashValue(0); f64::log2(currentSubTreeLeaves as f64) as usize];
+        let mut proof:Vec<HashValue> = vec![0; f64::log2(currentSubTreeLeaves as f64) as usize];
         //let mut currentSubTreeIndex = elem_index;
 
         while currentSubTreeLeaves > 1 {
@@ -141,7 +140,7 @@ impl MerkleTree {
 
         let mut hasher = DefaultHasher::new();
         element.hash(&mut hasher);
-        let hash = HashValue(hasher.finish());
+        let hash = hasher.finish();
 
         //If there are repeats, I go to the second element of the subtree; the leftmost element guaranteed to be a copy
         if repeats {
@@ -156,10 +155,10 @@ impl MerkleTree {
             let new_node = MerkleTreeNode::new(vec![element]);
 
             let mut hasher = DefaultHasher::new();
-            (self.root.hash.0 as u128 + new_node.hash.0 as u128).hash(&mut hasher);
+            (self.root.hash as u128 + new_node.hash as u128).hash(&mut hasher);
             let new_root_hash = hasher.finish();
 
-            let new_root = MerkleTreeNode { hash: HashValue(new_root_hash), leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
+            let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
 
         }
     }
@@ -193,7 +192,7 @@ mod tests {
         let merkle_tree_42 = MerkleTree::new(vec![test_int]);
         let mut hasher = DefaultHasher::new();
         test_int.hash(&mut hasher);
-        assert_eq!(merkle_tree_42.root.hash.0, hasher.finish());
+        assert_eq!(merkle_tree_42.root.hash, hasher.finish());
 
     }
 
@@ -243,28 +242,28 @@ mod tests {
         let hash_root = hasher_root.finish();
         
         
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[0]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[1]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[2]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[3]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash.0, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash.0, hashed_ints[4]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[0]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash, hashed_ints[1]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash, hashed_ints[2]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash, hashed_ints[3]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[4]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash, hashed_ints[4]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash, hashed_ints[4]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash, hashed_ints[4]);
 
 
 
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash.0, hash1);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash.0, hash2);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash.0, hash3);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash.0, hash3);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash1);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash2);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash3);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash3);
 
         
-        assert_eq!(merkle_tree.root.leftChild.unwrap().hash.0, hash4);
-        assert_eq!(merkle_tree.root.rightChild.unwrap().hash.0, hash5);
+        assert_eq!(merkle_tree.root.leftChild.unwrap().hash, hash4);
+        assert_eq!(merkle_tree.root.rightChild.unwrap().hash, hash5);
 
 
-        assert_eq!(merkle_tree.root.hash.0, hash_root);
+        assert_eq!(merkle_tree.root.hash, hash_root);
 
     }
 
@@ -289,13 +288,13 @@ mod tests {
         let hash_root = hasher_root.finish();
 
 
-        let left_child_hash = merkle_tree_42.root.leftChild.unwrap().hash.0;
+        let left_child_hash = merkle_tree_42.root.leftChild.unwrap().hash;
         assert_eq!(left_child_hash, hash1);
 
-        let right_child_hash = merkle_tree_42.root.rightChild.unwrap().hash.0;
+        let right_child_hash = merkle_tree_42.root.rightChild.unwrap().hash;
         assert_eq!(right_child_hash, hash2);
 
-        assert_eq!(merkle_tree_42.root.hash.0, hash_root);
+        assert_eq!(merkle_tree_42.root.hash, hash_root);
 
     }
 
@@ -334,16 +333,16 @@ mod tests {
         let hash_root = hasher_root.finish();
         
         
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash.0, hashed_ints[0]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash.0, hashed_ints[1]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash.0, hashed_ints[2]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash.0, hashed_ints[3]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hashed_ints[0]);
+        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hashed_ints[1]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hashed_ints[2]);
+        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hashed_ints[3]);
         
-        assert_eq!(merkle_tree.root.leftChild.unwrap().hash.0, hash1);
-        assert_eq!(merkle_tree.root.rightChild.unwrap().hash.0, hash2);
+        assert_eq!(merkle_tree.root.leftChild.unwrap().hash, hash1);
+        assert_eq!(merkle_tree.root.rightChild.unwrap().hash, hash2);
 
 
-        assert_eq!(merkle_tree.root.hash.0, hash_root);
+        assert_eq!(merkle_tree.root.hash, hash_root);
 
     }
 
@@ -380,8 +379,8 @@ mod tests {
         let hash_root = hasher_root.finish();
         
         
-        assert_eq!(proof[0].0, hashed_ints[3]);
-        assert_eq!(proof[1].0, hash1);
+        assert_eq!(proof[0], hashed_ints[3]);
+        assert_eq!(proof[1], hash1);
         
     }
 
