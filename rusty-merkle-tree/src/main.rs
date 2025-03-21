@@ -29,79 +29,71 @@ fn closestBiggerPowerOf2 (num: f64) -> u32 {
 
 }
 
-//Takes a vector with data, and returns a merkle tree derived from the hashes of each element in the vector
-fn createMerkleTreeFromData<T: Hash>(data: Vec<T>) -> MerkleTree {
-    
-    
-    let mut current_layer = Vec::new();
+impl MerkleTreeNode {
+    ///Takes a vector of data of any type that can be hashed
+    ///Returns a subtree of a Merkle tree that contains the has of one element in its leaves, in order
+    fn new<T: Hash> (data: Vec<T>) -> MerkleTreeNode {
+        let mut current_layer = Vec::new();
 
-    //Create a vector with the leaves of the tree to be made, by hashing each data block and pushing it onto the vector as a leaf
-    for block in data.iter() {
-        //Create a hasher to do the hashing
-        //For now I use the default hasher; could be made parametric to choose a hashing function
-        let mut hasher = DefaultHasher::new();
-        block.hash(&mut hasher);
-        current_layer.push(MerkleTreeNode{ hash: HashValue(hasher.finish()), leftChild: None, rightChild: None } );
-    }
-
-    
-    //Current layer is the current layer of nodes I'm processing. Next layer is the one I'm building based on those blocks.
-    //When there's only one left, that one is the root, and I'm done
-    //TODO: Currently only works if the vector size is a factor of two. Research further on how to appropriately handle cases where it isn't
-    while current_layer.len() > 1 {
-
-        //If number of elements is odd, I clone the last element and add it as another block to hash
-        if current_layer.len() % 2 != 0 { 
-
-            let last_element = current_layer.last().unwrap();
-            let last_element_clone = MerkleTreeNode {
-                hash: last_element.hash,
-                leftChild: last_element.leftChild.clone(),
-                rightChild: last_element.rightChild.clone()
-            };
-
-            current_layer.push(last_element_clone); 
-        }
-
-        let mut next_layer = Vec::new();
-
-        let mut current_layer_iter = current_layer.iter();
-        while let Some(node_left) = current_layer_iter.next() {
-
-            //Each node has two child nodes, so I get the next node as well
-            let node_right = current_layer_iter.next().unwrap();
-
-            //Calculate the sum of the hashes
+        //Create a vector with the leaves of the tree to be made, by hashing each data block and pushing it onto the vector as a leaf
+        for block in data.iter() {
+            //Create a hasher to do the hashing
+            //For now I use the default hasher; could be made parametric to choose a hashing function
             let mut hasher = DefaultHasher::new();
-
-            //Values need to be casted to u128 to prevent overflow
-            (node_left.hash.0 as u128 + node_right.hash.0 as u128).hash(&mut hasher);
-
-            let hash_sum = hasher.finish();
-
-            //Create the new node and push it onto the next layer
-            let new_node = MerkleTreeNode { hash: HashValue(hash_sum), leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
-            next_layer.push(new_node); 
+            block.hash(&mut hasher);
+            current_layer.push(MerkleTreeNode{ hash: HashValue(hasher.finish()), leftChild: None, rightChild: None } );
         }
 
-        //Swap the current layer to be the layar we just created, and next layer to be a new layer
-        current_layer = next_layer;
+
+        //Current layer is the current layer of nodes I'm processing. Next layer is the one I'm building based on those blocks.
+        //When there's only one left, that one is the root, and I'm done
+        //TODO: Currently only works if the vector size is a factor of two. Research further on how to appropriately handle cases where it isn't
+        while current_layer.len() > 1 {
+
+            //If number of elements is odd, I clone the last element and add it as another block to hash
+            if current_layer.len() % 2 != 0 { 
+
+                let last_element = current_layer.last().unwrap();
+                let last_element_clone = MerkleTreeNode {
+                    hash: last_element.hash,
+                    leftChild: last_element.leftChild.clone(),
+                    rightChild: last_element.rightChild.clone()
+                };
+
+                current_layer.push(last_element_clone); 
+            }
+
+            let mut next_layer = Vec::new();
+
+            let mut current_layer_iter = current_layer.iter();
+            while let Some(node_left) = current_layer_iter.next() {
+
+                //Each node has two child nodes, so I get the next node as well
+                let node_right = current_layer_iter.next().unwrap();
+
+                //Calculate the sum of the hashes
+                let mut hasher = DefaultHasher::new();
+
+                //Values need to be casted to u128 to prevent overflow
+                (node_left.hash.0 as u128 + node_right.hash.0 as u128).hash(&mut hasher);
+
+                let hash_sum = hasher.finish();
+
+                //Create the new node and push it onto the next layer
+                let new_node = MerkleTreeNode { hash: HashValue(hash_sum), leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
+                next_layer.push(new_node); 
+            }
+
+            //Swap the current layer to be the layar we just created, and next layer to be a new layer
+            current_layer = next_layer;
+        }
+
+        //Because of how the while is structured, only the root will be left in the vector.
+        //I get the first element and use it for the tree root
+        let node = current_layer.first().unwrap().clone();
+        node
     }
-
-    //Because of how the while is structured, only the root will be left in the vector.
-    //I get the first element and use it for the tree root
-    let root = current_layer.first().unwrap().clone();
-    let size= closestBiggerPowerOf2(data.len() as f64);
-    let tree =  MerkleTree { root, size };
-    tree
-    
-
-    
-    
-
-
 }
-
 
 impl MerkleTree {
     ///Takes an index with the position of the element if the leaves of the tree were made into an array
@@ -126,10 +118,18 @@ impl MerkleTree {
             currentSubTreeLeaves /= 2;
             proof[f64::log2(currentSubTreeLeaves as f64) as usize] = proofHash;
         } 
-        
-
 
         proof
+    }
+
+    ///Takes a vector of data of any type that can be hashed
+    ///Returns a Merkle tree that contains the has of one element in each leaf, in order
+    fn new<T: Hash> (data: Vec<T>) -> MerkleTree {
+        let size = closestBiggerPowerOf2(data.len() as f64);
+        let root = MerkleTreeNode::new(data);
+
+        let tree = MerkleTree { root, size };
+        tree
     }
 }
 
@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn merkle_tree_generation_works_for_one_int() {
         let test_int = 42;
-        let merkle_tree_42 = createMerkleTreeFromData(vec![test_int]);
+        let merkle_tree_42 = MerkleTree::new(vec![test_int]);
         let mut hasher = DefaultHasher::new();
         test_int.hash(&mut hasher);
         assert_eq!(merkle_tree_42.root.hash.0, hasher.finish());
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn merkle_tree_generation_works_for_uneven_amount_of_ints() {
         let test_ints = vec![4,8,15,16,23];
-        let merkle_tree = createMerkleTreeFromData(test_ints);
+        let merkle_tree = MerkleTree::new(test_ints);
 
         let test_ints = vec![4,8,15,16,23];
         let mut hashed_ints = Vec::new();
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn merkle_tree_generation_works_for_two_ints() {
         let test_ints = vec![4,2];
-        let merkle_tree_42 = createMerkleTreeFromData(test_ints);
+        let merkle_tree_42 = MerkleTree::new(test_ints);
 
         let mut hasher1 = DefaultHasher::new();
         let mut hasher2 = DefaultHasher::new();
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn merkle_tree_generation_works_for_four_ints() {
         let test_ints = vec![4,8,15,16];
-        let merkle_tree = createMerkleTreeFromData(test_ints);
+        let merkle_tree = MerkleTree::new(test_ints);
 
         let test_ints = vec![4,8,15,16];
         let mut hashed_ints = Vec::new();
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn proof_generation_is_valid() {
         let test_ints = vec![4,8,15,16];
-        let merkle_tree = createMerkleTreeFromData(test_ints.clone());
+        let merkle_tree = MerkleTree::new(test_ints.clone());
 
         let proof = merkle_tree.createMerkleProof(3);
 
