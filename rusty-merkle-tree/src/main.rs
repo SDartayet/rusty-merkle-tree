@@ -124,38 +124,49 @@ impl MerkleTree {
 
     ///Add an element to an already existing tree
     ///Takes an element of any hashable type
-    fn addElement<T: Hash>(&self, element: T) {
+    fn addElement<T: Hash>(&mut self, element: T) {
 
         let mut currentNode = self.root.clone();
-        let mut repeats = false;
+        let mut noRepeats = true;
 
         //I go through the entire Merkle Tree checking for redundant nodes 
         //(those that are copies of others, simply to make the tree balanced)
         //If I find a node that's a repeat, that means only the node that's leftmost on that subtree can be the hash of an original element
-        while(repeats) {
-            let leftChild = currentNode.leftChild.unwrap();
-            let rightChild = currentNode.rightChild.unwrap();
-            if leftChild.hash == rightChild.hash && leftChild.leftChild == rightChild.leftChild && leftChild.rightChild == leftChild.rightChild { repeats = true; }
+        while(noRepeats && currentNode.leftChild != None && currentNode.rightChild != None) {
+            let leftChild = currentNode.leftChild.clone().unwrap();
+            let rightChild = currentNode.rightChild.clone().unwrap();
+            if leftChild.hash == rightChild.hash && leftChild.leftChild == rightChild.leftChild && leftChild.rightChild == leftChild.rightChild { noRepeats = false; break; }
             currentNode = *rightChild.clone();
         }
 
         let elem_hash = hash(&element);
 
         //If there are repeats, I go to the second element of the subtree; the leftmost element guaranteed to be a copy
-        if repeats {
+        if !noRepeats {
             while currentNode.leftChild != None {
                 currentNode = *currentNode.rightChild.unwrap().clone();
             }
-            currentNode.rightChild.unwrap().hash = elem_hash;
+            currentNode.hash = elem_hash;
         } 
         
         //If there are no repeats, I need to create a whole new subtree, and incorporate that to the tree
         else {
-            let new_node = MerkleTreeNode::new(vec![element]);
+
+
+            let mut elementVec: Vec<&T> = Vec::with_capacity(self.size as usize);
+
+            for i in 0..self.size {
+                elementVec.push(&element);
+            }
+
+            let new_node = MerkleTreeNode::new(elementVec);
 
             let new_root_hash = hash(&(self.root.hash as u128 + new_node.hash as u128));
 
             let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
+
+            self.root = new_root;
+            self.size *= 2;
 
         }
     }
@@ -317,9 +328,52 @@ mod tests {
 
     #[test]
     fn full_merkle_tree_can_add_element() {
+        let test_ints = vec![4,8];
+        let mut tree = MerkleTree::new(test_ints.clone());
 
-        
+        tree.addElement(15);
+
+        let hash1 = hash(&(hash(&test_ints[0]) as u128 + hash(&test_ints[1]) as u128));
+        let hash2 = hash(&(hash(&15) as u128 + hash(&15) as u128));
+
+        let root_hash = hash(&(hash1 as u128 + hash2 as u128));
+
+
+        assert_eq!(tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[0]));
+        assert_eq!(tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash(&test_ints[1]));
+        assert_eq!(tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash(&15));
+        assert_eq!(tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash(&15));
+
+        assert_eq!(tree.root.leftChild.unwrap().hash, hash1);
+        assert_eq!(tree.root.rightChild.unwrap().hash, hash2);
+
+        assert_eq!(tree.root.hash, root_hash);
     }
+
+    #[test]
+    fn non_full_merkle_tree_adds_element_in_redundant_position() {
+        let test_ints = vec![4,8,15];
+        let mut tree = MerkleTree::new(test_ints.clone());
+
+        tree.addElement(16);
+
+        let hash1 = hash(&(hash(&test_ints[0]) as u128 + hash(&test_ints[1]) as u128));
+        let hash2 = hash(&(hash(&test_ints[2]) as u128 + hash(&16) as u128));
+
+        let root_hash = hash(&(hash1 as u128 + hash2 as u128));
+
+
+        assert_eq!(tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[0]));
+        assert_eq!(tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash(&test_ints[1]));
+        assert_eq!(tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[2]));
+        assert_eq!(tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash(&16));
+
+        assert_eq!(tree.root.leftChild.unwrap().hash, hash1);
+        assert_eq!(tree.root.rightChild.unwrap().hash, hash2);
+
+        assert_eq!(tree.root.hash, root_hash);
+    }
+
 }
 
 
