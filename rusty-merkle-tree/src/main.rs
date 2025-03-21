@@ -21,6 +21,13 @@ struct MerkleTree {
     size: u32,
 }
 
+fn hash<T: Hash> (val: T) -> HashValue {
+    let mut hasher = DefaultHasher::new();
+    val.hash(hasher);
+    let hash = hasher.finish();
+    hash
+}
+
 fn closestBiggerPowerOf2 (num: f64) -> u32 {
     let exp = f64::log2(num).ceil();
     f64::powf(2.0, exp) as u32
@@ -190,9 +197,7 @@ mod tests {
     fn merkle_tree_generation_works_for_one_int() {
         let test_int = 42;
         let merkle_tree_42 = MerkleTree::new(vec![test_int]);
-        let mut hasher = DefaultHasher::new();
-        test_int.hash(&mut hasher);
-        assert_eq!(merkle_tree_42.root.hash, hasher.finish());
+        assert_eq!(merkle_tree_42.root.hash, hash(test_int));
 
     }
 
@@ -205,41 +210,17 @@ mod tests {
         let mut hashed_ints = Vec::new();
 
         for int in test_ints.iter() {
-            let mut hasher = DefaultHasher::new();
-
-            int.hash(&mut hasher);
-            hashed_ints.push(hasher.finish());
+            hashed_ints.push(hash(int));
         }
-
-
         
-        let mut hasher1 = DefaultHasher::new();
-        (hashed_ints[0] as u128 + hashed_ints[1] as u128).hash(&mut hasher1);
-        let hash1 = hasher1.finish();
-        
+        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
+        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
+        let hash3 = hash(hashed_ints[4] as u128 + hashed_ints[4] as u128);
 
-        
-        let mut hasher2 = DefaultHasher::new();
-        (hashed_ints[2] as u128 + hashed_ints[3] as u128).hash(&mut hasher2);
-        let hash2 = hasher2.finish();
-
-        let mut hasher3 = DefaultHasher::new();
-        (hashed_ints[4] as u128 + hashed_ints[4] as u128).hash(&mut hasher3);
-        let hash3 = hasher3.finish();
-
-        let mut hasher4 = DefaultHasher::new();
-        (hash1 as u128 + hash2 as u128).hash(&mut hasher4);
-        let hash4 = hasher4.finish();
-
-        let mut hasher5 = DefaultHasher::new();
-        (hash3 as u128 + hash3 as u128).hash(&mut hasher5);
-        let hash5 = hasher5.finish();
+        let hash4 = hash(hash1 as u128 + hash2 as u128);
+        let hash5 = hash(hash3 as u128 + hash3 as u128);
     
-
-        
-        let mut hasher_root = DefaultHasher::new();
-        (hash4 as u128 + hash5 as u128).hash(&mut hasher_root);
-        let hash_root = hasher_root.finish();
+        let hash_root = hash(hash4 as u128 + hash5 as u128);
         
         
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[0]);
@@ -273,19 +254,11 @@ mod tests {
         let test_ints = vec![4,2];
         let merkle_tree_42 = MerkleTree::new(test_ints);
 
-        let mut hasher1 = DefaultHasher::new();
-        let mut hasher2 = DefaultHasher::new();
+        let hash1 = hash(4);
+        let hash2 = hash(2);
 
-        4.hash(&mut hasher1);
-        2.hash(&mut hasher2);
+        let hash_root = hash(hash1 as u128 + hash2 as u128);
 
-        let hash1 = hasher1.finish();
-        let hash2 = hasher2.finish();
-
-        let mut hasher_root = DefaultHasher::new();
-        (hash1 as u128 + hash2 as u128).hash(&mut hasher_root);
-
-        let hash_root = hasher_root.finish();
 
 
         let left_child_hash = merkle_tree_42.root.leftChild.unwrap().hash;
@@ -308,30 +281,13 @@ mod tests {
         let mut hashed_ints = Vec::new();
 
         for int in test_ints.iter() {
-            let mut hasher = DefaultHasher::new();
-
-            int.hash(&mut hasher);
-            hashed_ints.push(hasher.finish());
+            hashed_ints.push(hash(int));
         }
 
-
-        
-        let mut hasher1 = DefaultHasher::new();
-        (hashed_ints[0] as u128 + hashed_ints[1] as u128).hash(&mut hasher1);
-        let hash1 = hasher1.finish();
-        
-
-        
-        let mut hasher2 = DefaultHasher::new();
-        (hashed_ints[2] as u128 + hashed_ints[3] as u128).hash(&mut hasher2);
-        let hash2 = hasher2.finish();
-    
-
-        
-        let mut hasher_root = DefaultHasher::new();
-        (hash1 as u128 + hash2 as u128).hash(&mut hasher_root);
-        let hash_root = hasher_root.finish();
-        
+        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
+        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
+  
+        let hash_root = hash(hash1 as u128 + hash2 as u128);
         
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hashed_ints[0]);
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hashed_ints[1]);
@@ -356,29 +312,14 @@ mod tests {
         let mut hashed_ints = Vec::new();
 
         for int in test_ints.iter() {
-            let mut hasher = DefaultHasher::new();
-
-            int.hash(&mut hasher);
-            hashed_ints.push(hasher.finish());
+            hashed_ints.push(hash(int));
         }
         
-        let mut hasher1 = DefaultHasher::new();
-        (hashed_ints[0] as u128 + hashed_ints[1] as u128).hash(&mut hasher1);
-        let hash1 = hasher1.finish();
-        
-
-        
-        let mut hasher2 = DefaultHasher::new();
-        (hashed_ints[2] as u128 + hashed_ints[3] as u128).hash(&mut hasher2);
-        let hash2 = hasher2.finish();
+        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
+        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
     
-
-        
-        let mut hasher_root = DefaultHasher::new();
-        (hash1 as u128 + hash2 as u128).hash(&mut hasher_root);
-        let hash_root = hasher_root.finish();
-        
-        
+        let hash_root = hash(hash1 as u128 + hash2 as u128);
+         
         assert_eq!(proof[0], hashed_ints[3]);
         assert_eq!(proof[1], hash1);
         
