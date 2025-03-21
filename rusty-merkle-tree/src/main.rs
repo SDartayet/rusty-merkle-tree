@@ -21,9 +21,11 @@ struct MerkleTree {
     size: u32,
 }
 
-fn hash<T: Hash> (val: T) -> HashValue {
+fn hash<T: Hash> (val: &T) -> HashValue {
+    //For now I use the default hasher
+    //TODO: Could be made parametric
     let mut hasher = DefaultHasher::new();
-    val.hash(hasher);
+    val.hash(&mut hasher);
     let hash = hasher.finish();
     hash
 }
@@ -43,11 +45,7 @@ impl MerkleTreeNode {
 
         //Create a vector with the leaves of the tree to be made, by hashing each data block and pushing it onto the vector as a leaf
         for block in data.iter() {
-            //Create a hasher to do the hashing
-            //For now I use the default hasher; could be made parametric to choose a hashing function
-            let mut hasher = DefaultHasher::new();
-            block.hash(&mut hasher);
-            current_layer.push(MerkleTreeNode{ hash: hasher.finish(), leftChild: None, rightChild: None } );
+            current_layer.push(MerkleTreeNode{ hash: hash(block), leftChild: None, rightChild: None } );
         }
 
 
@@ -78,12 +76,8 @@ impl MerkleTreeNode {
                 let node_right = current_layer_iter.next().unwrap();
 
                 //Calculate the sum of the hashes
-                let mut hasher = DefaultHasher::new();
-
                 //Values need to be casted to u128 to prevent overflow
-                (node_left.hash as u128 + node_right.hash as u128).hash(&mut hasher);
-
-                let hash_sum = hasher.finish();
+                let hash_sum = hash(&(node_left.hash as u128 + node_right.hash as u128));
 
                 //Create the new node and push it onto the next layer
                 let new_node = MerkleTreeNode { hash: hash_sum, leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
@@ -145,25 +139,21 @@ impl MerkleTree {
             currentNode = *rightChild.clone();
         }
 
-        let mut hasher = DefaultHasher::new();
-        element.hash(&mut hasher);
-        let hash = hasher.finish();
+        let elem_hash = hash(&element);
 
         //If there are repeats, I go to the second element of the subtree; the leftmost element guaranteed to be a copy
         if repeats {
             while currentNode.leftChild != None {
                 currentNode = *currentNode.rightChild.unwrap().clone();
             }
-            currentNode.rightChild.unwrap().hash = hash;
+            currentNode.rightChild.unwrap().hash = elem_hash;
         } 
         
         //If there are no repeats, I need to create a whole new subtree, and incorporate that to the tree
         else {
             let new_node = MerkleTreeNode::new(vec![element]);
 
-            let mut hasher = DefaultHasher::new();
-            (self.root.hash as u128 + new_node.hash as u128).hash(&mut hasher);
-            let new_root_hash = hasher.finish();
+            let new_root_hash = hash(&(self.root.hash as u128 + new_node.hash as u128));
 
             let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
 
@@ -197,7 +187,7 @@ mod tests {
     fn merkle_tree_generation_works_for_one_int() {
         let test_int = 42;
         let merkle_tree_42 = MerkleTree::new(vec![test_int]);
-        assert_eq!(merkle_tree_42.root.hash, hash(test_int));
+        assert_eq!(merkle_tree_42.root.hash, hash(&test_int));
 
     }
 
@@ -213,14 +203,14 @@ mod tests {
             hashed_ints.push(hash(int));
         }
         
-        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
-        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
-        let hash3 = hash(hashed_ints[4] as u128 + hashed_ints[4] as u128);
+        let hash1 = hash(&(hashed_ints[0] as u128 + hashed_ints[1] as u128));
+        let hash2 = hash(&(hashed_ints[2] as u128 + hashed_ints[3] as u128));
+        let hash3 = hash(&(hashed_ints[4] as u128 + hashed_ints[4] as u128));
 
-        let hash4 = hash(hash1 as u128 + hash2 as u128);
-        let hash5 = hash(hash3 as u128 + hash3 as u128);
+        let hash4 = hash(&(hash1 as u128 + hash2 as u128));
+        let hash5 = hash(&(hash3 as u128 + hash3 as u128));
     
-        let hash_root = hash(hash4 as u128 + hash5 as u128);
+        let hash_root = hash(&(hash4 as u128 + hash5 as u128));
         
         
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[0]);
@@ -254,10 +244,10 @@ mod tests {
         let test_ints = vec![4,2];
         let merkle_tree_42 = MerkleTree::new(test_ints);
 
-        let hash1 = hash(4);
-        let hash2 = hash(2);
+        let hash1 = hash(&4);
+        let hash2 = hash(&2);
 
-        let hash_root = hash(hash1 as u128 + hash2 as u128);
+        let hash_root = hash(&(hash1 as u128 + hash2 as u128));
 
 
 
@@ -284,10 +274,10 @@ mod tests {
             hashed_ints.push(hash(int));
         }
 
-        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
-        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
+        let hash1 = hash(&(hashed_ints[0] as u128 + hashed_ints[1] as u128));
+        let hash2 = hash(&(hashed_ints[2] as u128 + hashed_ints[3] as u128));
   
-        let hash_root = hash(hash1 as u128 + hash2 as u128);
+        let hash_root = hash(&(hash1 as u128 + hash2 as u128));
         
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hashed_ints[0]);
         assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hashed_ints[1]);
@@ -315,10 +305,10 @@ mod tests {
             hashed_ints.push(hash(int));
         }
         
-        let hash1 = hash(hashed_ints[0] as u128 + hashed_ints[1] as u128);
-        let hash2 = hash(hashed_ints[2] as u128 + hashed_ints[3] as u128);
+        let hash1 = hash(&(hashed_ints[0] as u128 + hashed_ints[1] as u128));
+        let hash2 = hash(&(hashed_ints[2] as u128 + hashed_ints[3] as u128));
     
-        let hash_root = hash(hash1 as u128 + hash2 as u128);
+        let hash_root = hash(&(hash1 as u128 + hash2 as u128));
          
         assert_eq!(proof[0], hashed_ints[3]);
         assert_eq!(proof[1], hash1);
