@@ -14,6 +14,7 @@ struct MerkleTreeNode{
     hash: HashValue,
     leftChild: Option<Box<MerkleTreeNode>>,
     rightChild: Option<Box<MerkleTreeNode>>,
+    parent: Option<Box<MerkleTreeNode>> 
 }
 
 struct MerkleTree {
@@ -45,7 +46,7 @@ impl MerkleTreeNode {
 
         //Create a vector with the leaves of the tree to be made, by hashing each data block and pushing it onto the vector as a leaf
         for block in data.iter() {
-            current_layer.push(MerkleTreeNode{ hash: hash(block), leftChild: None, rightChild: None } );
+            current_layer.push(MerkleTreeNode{ hash: hash(block), leftChild: None, rightChild: None, parent: None } );
         }
 
 
@@ -58,12 +59,7 @@ impl MerkleTreeNode {
             if current_layer.len() % 2 != 0 { 
 
                 let last_element = current_layer.last().unwrap();
-                let last_element_clone = MerkleTreeNode {
-                    hash: last_element.hash,
-                    leftChild: last_element.leftChild.clone(),
-                    rightChild: last_element.rightChild.clone()
-                };
-
+                let last_element_clone = last_element.clone();
                 current_layer.push(last_element_clone); 
             }
 
@@ -80,7 +76,11 @@ impl MerkleTreeNode {
                 let hash_sum = hash(&(node_left.hash as u128 + node_right.hash as u128));
 
                 //Create the new node and push it onto the next layer
-                let new_node = MerkleTreeNode { hash: hash_sum, leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())) };
+                let new_node = MerkleTreeNode { hash: hash_sum, leftChild: Some(Box::new(node_left.clone())), rightChild: Some(Box::new(node_right.clone())), parent: None };
+                let new_node_ref = Some(Box::new(new_node.clone()));
+                new_node.clone().leftChild.unwrap().parent = new_node_ref.clone();
+                new_node.clone().rightChild.unwrap().parent = new_node_ref;
+
                 next_layer.push(new_node); 
             }
 
@@ -163,7 +163,7 @@ impl MerkleTree {
 
             let new_root_hash = hash(&(self.root.hash as u128 + new_node.hash as u128));
 
-            let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)) };
+            let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)), parent: None };
 
             self.root = new_root;
             self.size *= 2;
