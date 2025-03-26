@@ -175,7 +175,6 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::DerefMut;
 
     use super::*;
     
@@ -184,7 +183,7 @@ mod tests {
         let test_int = 42;
         let merkle_tree_42 = MerkleTree::new(vec![test_int]);
         assert_eq!(merkle_tree_42.root, hash(&test_int));
-
+        assert_eq!(merkle_tree_42.unique_elements, 1);
     }
 
     #[test]
@@ -207,7 +206,7 @@ mod tests {
         }
         let root_hash = current_layer[0];
         assert_eq!(merkle_tree.root, root_hash);
-        
+        assert_eq!(merkle_tree.unique_elements, 2);
     }
 
     #[test]
@@ -232,7 +231,7 @@ mod tests {
         }
         let root_hash = current_layer[0];
         assert_eq!(merkle_tree.root, root_hash);
-
+        assert_eq!(merkle_tree.unique_elements, 4);
     }
 
     #[test]
@@ -259,7 +258,7 @@ mod tests {
         }
         let root_hash = current_layer[0];
         assert_eq!(merkle_tree.root, root_hash);
-        
+        assert_eq!(merkle_tree.unique_elements, 6);
     }
     /*
     #[test]
