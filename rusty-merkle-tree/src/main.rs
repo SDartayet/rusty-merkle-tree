@@ -176,7 +176,22 @@ impl MerkleTree {
             self.root = hash(&(last_layer_before_root[0] as u128 + last_layer_before_root[1] as u128));
         } else {
 
+            //I take the index of the first element that's repeated and change it for the hash of the new element
+            let mut index_to_be_updated = self.unique_elements;
+            self.layers[0][index_to_be_updated] = hash(&elem);
+
+            // Then I have to go through every upper layer updating the hashes
+            // If I update the node of index i in layer j, then in layer j+1 (its upper layer) its parent will be i/2
+            // Its brother will be i if its odd, and i+1 if its even. Because I do an integer division beforehand, i can always just add one
+            index_to_be_updated /= 2;
+            for i in 1..self.layers.len() {
+                let new_hash = hash(&(self.layers[i-1][index_to_be_updated*2] as u128 + self.layers[i-1][index_to_be_updated*2+1] as u128));
+                self.layers[i][index_to_be_updated] = new_hash;
+            }
+            self.root = hash(&(self.layers.last().unwrap()[0] as u128 + self.layers.last().unwrap()[1] as u128));
         }
+
+        self.unique_elements += 1;
     }
 
     fn createLayers(hashes: Vec<HashValue>) -> Vec<Vec<HashValue>> {
@@ -304,6 +319,35 @@ mod tests {
         let mut current_layer: Vec<HashValue> = test_ints.iter().map(|x| hash(x)).collect();
         
         merkle_tree.addElement(23);
+
+        for i in (0..merkle_tree.layers.len()) {
+            for j in 0..current_layer.len() {
+                assert_eq!(merkle_tree.layers[i][j], current_layer[j]);   
+            }
+            let mut next_layer: Vec<HashValue> = Vec::with_capacity(current_layer.len()/2);
+            for mut j in 0..current_layer.len()/2 {
+                next_layer.push(hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128)));
+
+            }
+            current_layer = next_layer;
+        }
+        let root_hash = current_layer[0];
+        assert_eq!(merkle_tree.root, root_hash);
+        assert_eq!(merkle_tree.unique_elements, 5);
+    }
+
+    #[test]
+    fn add_element_works_for_trees_with_repeat_elements() {
+        let mut test_ints = vec![4,8,15];
+        let mut merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let mut repeats = vec![16];
+
+        test_ints.append(&mut repeats);
+
+        let mut current_layer: Vec<HashValue> = test_ints.iter().map(|x| hash(x)).collect();
+        
+        merkle_tree.addElement(16);
 
         for i in (0..merkle_tree.layers.len()) {
             for j in 0..current_layer.len() {
