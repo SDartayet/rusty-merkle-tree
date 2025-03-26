@@ -127,7 +127,7 @@ impl MerkleTree {
     /// Merkle tree creation function
     /// Input: A vector of data
     /// Output: a Merkle tree with the hashes of said data as its leaves
-    fn new<T: Hash> (data: Vec<T>) -> MerkleTree {
+    pub fn new<T: Hash> (data: Vec<T>) -> MerkleTree {
 
         // Hash every element
         let mut hashes: Vec<HashValue> = data.iter().map(| elem | hash(elem)).collect();
@@ -143,28 +143,62 @@ impl MerkleTree {
             hashes.append(&mut last_elem_repetitions);
         }
 
+        let mut tree = MerkleTree { root: hashes[0].clone(), layers: MerkleTree::createLayers(hashes), unique_elements: last_elem_position };
+
+        if last_elem_position > 1 {
+            tree.root = hash(&((*tree.layers.last().unwrap())[0] as u128 + (*tree.layers.last().unwrap())[1] as u128));
+        } 
+        tree
+    }
+
+    /// Function that dynamically adds an element to the merkle tree
+    /// Input: an element of a hashable type
+    /// Output: none, the tree is modified dybamically
+    pub fn addElement<T: Hash>(&mut self, elem: T) {
+        let leaves_count = self.layers[0].len();
+
+        // I check if the amount of unique elements is already a power of 2, or if I had to fill with repeats
+        // If its a number of two, I create a new subtree (as a vector of vectors) and append the elements of the new subtree to the corresponding layer vector
+        // If not, I replace the first repeated instance of an element with the new element
+        let repeats_present = leaves_count > self.unique_elements;
+
+        if (!repeats_present) {
+            let mut new_layers = MerkleTree::createLayers(vec![hash(&elem); leaves_count]);
+            for (layer_old, layer_new) in self.layers.iter_mut().zip(new_layers.iter_mut()) {
+                layer_old.append(layer_new);
+            }
+            let hash_pre_root_left = hash(&(self.layers.last().unwrap()[0] as u128 + self.layers.last().unwrap()[1] as u128 ));
+            let hash_pre_root_right = hash(&(self.layers.last().unwrap()[2] as u128 + self.layers.last().unwrap()[3] as u128 ));
+
+            let last_layer_before_root = vec![hash_pre_root_left, hash_pre_root_right];
+            self.layers.push(last_layer_before_root.clone());
+
+            self.root = hash(&(last_layer_before_root[0] as u128 + last_layer_before_root[1] as u128));
+        } else {
+
+        }
+    }
+
+    fn createLayers(hashes: Vec<HashValue>) -> Vec<Vec<HashValue>> {
         let mut current_layer = hashes.clone();
 
-        let intermediate_layers_amount = f64::log2(hashes.len() as f64) as usize;
-
-        let mut tree = MerkleTree { root: 0, layers: vec![[].to_vec(); intermediate_layers_amount], unique_elements: last_elem_position };
+        let layers_amount = f64::log2(hashes.len() as f64) as usize;
+        let mut layers: Vec<Vec<HashValue>> = Vec::new();
 
         // I go through each of the layers, starting with the leaves, and create the layer on top of it by adding the hashes of the two elements below, adding them, and hashing the sum
         // I need to put them in the intermediate layers array in reverse order, so the smallest layer is on top
-        for i in (0..intermediate_layers_amount).rev() {
+
+        for i in (0..layers_amount) {
+            layers.push(current_layer.clone());
             let mut next_layer = Vec::new();
 
             for mut j in 0..(current_layer.len()/2) {
-                let new_hash = hash(&(current_layer[j] as u128 + current_layer[j+1] as u128));
+                let new_hash = hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128));
                 next_layer.push(new_hash);
-                j += 1;
             } 
-            tree.layers[i] = current_layer.clone();
             current_layer = next_layer.clone();
         }
-
-        tree.root = current_layer[0];
-        tree
+        layers
     }
 }
 
@@ -193,14 +227,13 @@ mod tests {
 
         let mut current_layer: Vec<HashValue> = test_ints.iter().map(|x| hash(x)).collect();
 
-        for i in (0..merkle_tree.layers.len()).rev() {
+        for i in (0..merkle_tree.layers.len()) {
             for j in 0..current_layer.len() {
                 assert_eq!(merkle_tree.layers[i][j], current_layer[j]);   
             }
             let mut next_layer: Vec<HashValue> = Vec::with_capacity(current_layer.len()/2);
-            for mut j in 0..current_layer.len()/2 {
-                next_layer.push(hash(&(current_layer[j] as u128 + current_layer[j+1] as u128)));
-                j += 1;
+            for j in 0..current_layer.len()/2 {
+                next_layer.push(hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128)));
             }
             current_layer = next_layer;
         }
@@ -218,14 +251,13 @@ mod tests {
 
         
 
-        for i in (0..merkle_tree.layers.len()).rev() {
+        for i in (0..merkle_tree.layers.len()) {
             for j in 0..current_layer.len() {
                 assert_eq!(merkle_tree.layers[i][j], current_layer[j]);   
             }
             let mut next_layer: Vec<HashValue> = Vec::with_capacity(current_layer.len()/2);
-            for mut j in 0..current_layer.len()/2 {
-                next_layer.push(hash(&(current_layer[j] as u128 + current_layer[j+1] as u128)));
-                j += 1;
+            for j in 0..current_layer.len()/2 {
+                next_layer.push(hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128)));
             }
             current_layer = next_layer;
         }
@@ -245,20 +277,48 @@ mod tests {
 
         let mut current_layer: Vec<HashValue> = test_ints.iter().map(|x| hash(x)).collect();
 
-        for i in (0..merkle_tree.layers.len()).rev() {
+        for i in (0..merkle_tree.layers.len()) {
             for j in 0..current_layer.len() {
                 assert_eq!(merkle_tree.layers[i][j], current_layer[j]);   
             }
             let mut next_layer: Vec<HashValue> = Vec::with_capacity(current_layer.len()/2);
             for mut j in 0..current_layer.len()/2 {
-                next_layer.push(hash(&(current_layer[j] as u128 + current_layer[j+1] as u128)));
-                j += 1;
+                next_layer.push(hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128)));
             }
             current_layer = next_layer;
         }
         let root_hash = current_layer[0];
         assert_eq!(merkle_tree.root, root_hash);
         assert_eq!(merkle_tree.unique_elements, 6);
+    }
+
+    #[test]
+    fn add_element_works_for_trees_with_power_of_2_unique_elements() {
+        let mut test_ints = vec![4,8,15,16];
+        let mut merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let mut repeats = vec![23; 4];
+
+        test_ints.append(&mut repeats);
+
+        let mut current_layer: Vec<HashValue> = test_ints.iter().map(|x| hash(x)).collect();
+        
+        merkle_tree.addElement(23);
+
+        for i in (0..merkle_tree.layers.len()) {
+            for j in 0..current_layer.len() {
+                assert_eq!(merkle_tree.layers[i][j], current_layer[j]);   
+            }
+            let mut next_layer: Vec<HashValue> = Vec::with_capacity(current_layer.len()/2);
+            for mut j in 0..current_layer.len()/2 {
+                next_layer.push(hash(&(current_layer[j*2] as u128 + current_layer[j*2+1] as u128)));
+
+            }
+            current_layer = next_layer;
+        }
+        let root_hash = current_layer[0];
+        assert_eq!(merkle_tree.root, root_hash);
+        assert_eq!(merkle_tree.unique_elements, 4);
     }
     /*
     #[test]
