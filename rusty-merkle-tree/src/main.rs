@@ -133,7 +133,7 @@ impl MerkleTree {
     ///The root is all the hashes needed to reconstruct the root hash bottom up, while only having the hash of the element provided
     ///Input: the element for which we want to create a proof
     ///Output: the proof vector, or None if the element isn't present
-    pub fn createProof<T: Hash>(&self, elem: T) -> Option<Vec<HashValue>> {
+    pub fn generateProof<T: Hash>(&self, elem: T) -> Option<Vec<HashValue>> {
         // I look for the position of the element in the leaves array and pattern match on it
         let element_index = self.findElement(elem);
         if let Some(pos) = element_index {
@@ -153,9 +153,23 @@ impl MerkleTree {
         //I return None if the element wasn't in the tree
     }
 
+    /// Auxiliary function to find the index of the hash of an element in the leaves array
+    /// Input: an element
+    /// Output: the index of the element if its hash is in the tree, or None if it can't be found
     fn findElement<T: Hash>(&self, elem:T) -> Option<usize> {
         let index = self.layers[0].iter().position(|&r| r == hash(&elem));
         index
+    }
+
+
+    pub fn validateProof<T: Hash>(&self, proof: Vec<HashValue>, elem: T) -> bool {
+
+        let mut current_hash = hash(&elem);
+
+        for i in (0..self.layers.len()) {
+            current_hash = hash(&(current_hash as u128 + proof[i] as u128));
+        }
+        self.root == current_hash
     }
 }
 
@@ -312,7 +326,7 @@ mod tests {
         let test_ints = vec![4,8,15,16];
         let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let proof = merkle_tree.createProof(15).unwrap();
+        let proof = merkle_tree.generateProof(15).unwrap();
         let mut current_hash = hash(&15);
 
         for i in (0..merkle_tree.layers.len()) {
@@ -326,7 +340,7 @@ mod tests {
         let test_ints = vec![4,8,15,16];
         let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let proof = merkle_tree.createProof(16).unwrap();
+        let proof = merkle_tree.generateProof(16).unwrap();
         let mut current_hash = hash(&16);
 
         for i in (0..merkle_tree.layers.len()) {
@@ -340,7 +354,7 @@ mod tests {
         let test_ints = vec![4,8,15];
         let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let proof = merkle_tree.createProof(15).unwrap();
+        let proof = merkle_tree.generateProof(15).unwrap();
         let mut current_hash = hash(&15);
 
         for i in (0..merkle_tree.layers.len()) {
@@ -354,135 +368,64 @@ mod tests {
         let test_ints = vec![4,8,15,16];
         let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let proof = merkle_tree.createProof(23);
+        let proof = merkle_tree.generateProof(23);
 
         assert_eq!(proof, None);
     }
-    /*
+
     #[test]
-    fn proof_generation_is_valid() {
+    fn proof_validation_works_for_valid_proof() {
         let test_ints = vec![4,8,15,16];
         let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let proof = merkle_tree.createMerkleProof(3);
+        let mut elem = 15;
 
-        let mut hashed_ints = Vec::new();
+        let mut proof: Vec<HashValue> = Vec::new();
 
-        for int in test_ints.iter() {
-            hashed_ints.push(hash(int));
+        let mut current_proof_elem_index = 2;
+
+        for layer in merkle_tree.layers.iter() {
+            if current_proof_elem_index % 2 == 0 {
+                proof.push(layer[current_proof_elem_index + 1]);
+            } else { proof.push(layer[current_proof_elem_index - 1]); }
+            current_proof_elem_index /= 2;
         }
         
-        let hash1 = hash(&(hashed_ints[0] as u128 + hashed_ints[1] as u128));
-        let hash2 = hash(&(hashed_ints[2] as u128 + hashed_ints[3] as u128));
-    
-        let hash_root = hash(&(hash1 as u128 + hash2 as u128));
-         
-        assert_eq!(proof[0], hashed_ints[3]);
-        assert_eq!(proof[1], hash1);
-        
+        assert!(merkle_tree.validateProof(proof, elem))
     }
-    
+
     #[test]
-    fn merkle_tree_generation_works_for_uneven_amount_of_ints() {
-        let test_ints = vec![4,8,15,16,23];
-        let merkle_tree = MerkleTree::new(test_ints);
+    fn proof_validation_doesnt_work_for_invalid_proof() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        let test_ints = vec![4,8,15,16,23];
-        let mut hashed_ints = Vec::new();
+        let mut elem = 23;
 
-        for int in test_ints.iter() {
-            hashed_ints.push(hash(int));
+        let mut proof: Vec<HashValue> = Vec::new();
+
+        let mut current_proof_elem_index = 2;
+
+        for layer in merkle_tree.layers.iter() {
+            if current_proof_elem_index % 2 == 0 {
+                proof.push(layer[current_proof_elem_index + 1]);
+            } else { proof.push(layer[current_proof_elem_index - 1]); }
+            current_proof_elem_index /= 2;
         }
         
-        let hash1 = hash(&(hashed_ints[0] as u128 + hashed_ints[1] as u128));
-        let hash2 = hash(&(hashed_ints[2] as u128 + hashed_ints[3] as u128));
-        let hash3 = hash(&(hashed_ints[4] as u128 + hashed_ints[4] as u128));
-
-        let hash4 = hash(&(hash1 as u128 + hash2 as u128));
-        let hash5 = hash(&(hash3 as u128 + hash3 as u128));
-    
-        let hash_root = hash(&(hash4 as u128 + hash5 as u128));
-        
-        
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[0]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash, hashed_ints[1]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash, hashed_ints[2]);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash, hashed_ints[3]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().leftChild.unwrap().hash, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().rightChild.unwrap().hash, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().leftChild.unwrap().hash, hashed_ints[4]);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().rightChild.unwrap().hash, hashed_ints[4]);
-
-
-
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash1);
-        assert_eq!(merkle_tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash2);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash3);
-        assert_eq!(merkle_tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash3);
-
-        
-        assert_eq!(merkle_tree.root.leftChild.unwrap().hash, hash4);
-        assert_eq!(merkle_tree.root.rightChild.unwrap().hash, hash5);
-
-
-        assert_eq!(merkle_tree.root.hash, hash_root);
-
-    }
-
-    //Test tree creation on a size 2 vector
-    
-
-    //Test tree creation on a size 4 vector
-   
-
-    #[test]
-    fn full_merkle_tree_can_add_element() {
-        let test_ints = vec![4,8];
-        let mut tree = MerkleTree::new(test_ints.clone());
-
-        tree.addElement(15);
-
-        let hash1 = hash(&(hash(&test_ints[0]) as u128 + hash(&test_ints[1]) as u128));
-        let hash2 = hash(&(hash(&15) as u128 + hash(&15) as u128));
-
-        let root_hash = hash(&(hash1 as u128 + hash2 as u128));
-
-
-        assert_eq!(tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[0]));
-        assert_eq!(tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash(&test_ints[1]));
-        assert_eq!(tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash(&15));
-        assert_eq!(tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash(&15));
-
-        assert_eq!(tree.root.leftChild.unwrap().hash, hash1);
-        assert_eq!(tree.root.rightChild.unwrap().hash, hash2);
-
-        assert_eq!(tree.root.hash, root_hash);
+        assert!(!merkle_tree.validateProof(proof, elem))
     }
 
     #[test]
-    fn non_full_merkle_tree_adds_element_in_redundant_position() {
-        let test_ints = vec![4,8,15];
-        let mut tree = MerkleTree::new(test_ints.clone());
+    fn proof_validation_works_for_proof_generated_by_tree() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
 
-        tree.addElement(16);
+        let mut elem = 15;
 
-        let hash1 = hash(&(hash(&test_ints[0]) as u128 + hash(&test_ints[1]) as u128));
-        let hash2 = hash(&(hash(&test_ints[2]) as u128 + hash(&16) as u128));
+        let proof = merkle_tree.generateProof(elem).unwrap();
 
-        let root_hash = hash(&(hash1 as u128 + hash2 as u128));
-
-
-        assert_eq!(tree.root.leftChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[0]));
-        assert_eq!(tree.root.leftChild.clone().unwrap().rightChild.unwrap().hash, hash(&test_ints[1]));
-        assert_eq!(tree.root.rightChild.clone().unwrap().leftChild.unwrap().hash, hash(&test_ints[2]));
-        assert_eq!(tree.root.rightChild.clone().unwrap().rightChild.unwrap().hash, hash(&16));
-
-        assert_eq!(tree.root.leftChild.unwrap().hash, hash1);
-        assert_eq!(tree.root.rightChild.unwrap().hash, hash2);
-
-        assert_eq!(tree.root.hash, root_hash);
-    }*/
-
+        assert!(merkle_tree.validateProof(proof, elem))
+    }
 }
 
 
