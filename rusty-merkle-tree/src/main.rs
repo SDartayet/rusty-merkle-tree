@@ -34,96 +34,6 @@ fn closestBiggerPowerOf2 (num: f64) -> u32 {
 }
 
 impl MerkleTree {
-    ///Takes an index with the position of the element if the leaves of the tree were made into an array
-    ///Returns an array of hashes, in order from lowest to highest layer in the tree they're in, needed to validate the element is part of the tree
-    /*fn createMerkleProof(&self, elem_index: u32) -> Vec<HashValue> {
-        let mut currentNode = newPointerWith(self.root.clone());
-        let mut proofHash: HashValue;
-        let mut currentSubTreeIndex = elem_index;
-        let mut currentSubTreeLeaves = self.size;
-        let mut proof:Vec<HashValue> = vec![0; f64::log2(currentSubTreeLeaves as f64) as usize];
-        //let mut currentSubTreeIndex = elem_index;
-
-        while currentSubTreeLeaves > 1 {
-            if currentSubTreeIndex > currentSubTreeLeaves / 2 {
-                currentSubTreeIndex -= currentSubTreeLeaves / 2;
-                proofHash = currentNode.borrow().leftChild.unwrap().borrow_mut().hash;
-                currentNode = currentNode.borrow().rightChild.unwrap();
-            } else {
-                proofHash = currentNode.borrow().rightChild.unwrap().borrow().hash;
-                currentNode = currentNode.borrow().leftChild.unwrap();
-            }
-            currentSubTreeLeaves /= 2;
-            proof[f64::log2(currentSubTreeLeaves as f64) as usize] = proofHash;
-        } 
-
-        proof
-    }*/
-
-    ///Add an element to an already existing tree
-    ///Takes an element of any hashable type
-    /*fn addElement<T: Hash>(&mut self, element: T) {
-
-        let mut currentNode= &mut self.root;
-        let mut noRepeats = true;
-
-        let mut leftChild: &mut Box<MerkleTreeNode>;
-        let mut rightChild: &mut Box<MerkleTreeNode>;
-
-
-        //I go through the entire Merkle Tree checking for redundant nodes 
-        //(those that are copies of others, simply to make the tree balanced)
-        //If I find a node that's a repeat, that means only the node that's leftmost on that subtree can be the hash of an original element
-        while(noRepeats && currentNode.leftChild != None && currentNode.rightChild != None) {
-            leftChild = currentNode.leftChild.as_mut().unwrap();
-            rightChild = currentNode.rightChild.as_mut().unwrap();
-            if leftChild.hash == rightChild.hash && leftChild.leftChild == rightChild.leftChild && leftChild.rightChild == leftChild.rightChild { noRepeats = false; break; }
-            currentNode = rightChild;
-        }
-
-        let elem_hash = hash(&element);
-
-        //If there are repeats, I go to the second element of the subtree; the leftmost element guaranteed to be a copy
-        /*if !noRepeats {
-            while currentNode.leftChild != None {
-                currentNode = currentNode.leftChild.as_mut().unwrap();
-            }
-            currentNode = currentNode.parent.as_mut().unwrap();            
-            currentNode.hash = elem_hash;
-            currentNode = (*currentNode.parent.as_mut().unwrap()).as_mut();
-
-
-            while currentNode.parent != None {
-                currentNode.hash = hash(&(currentNode.leftChild.clone().unwrap().hash as u128 + currentNode.rightChild.clone().unwrap().hash as u128));
-                currentNode = currentNode.parent.as_mut().unwrap();
-            }
-            (*currentNode).hash = hash(&(currentNode.leftChild.clone().unwrap().hash as u128 + currentNode.rightChild.clone().unwrap().hash as u128));
-
-        } */
-        
-        //If there are no repeats, I need to create a whole new subtree, and incorporate that to the tree
-        else {
-
-
-            let mut elementVec: Vec<&T> = Vec::with_capacity(self.size as usize);
-
-            for i in 0..self.size {
-                elementVec.push(&element);
-            }
-
-            let new_node = MerkleTreeNode::new(elementVec);
-
-            let new_root_hash = hash(&(self.root.hash as u128 + new_node.hash as u128));
-
-            let new_root = MerkleTreeNode { hash: new_root_hash, leftChild: Some(Box::new(self.root.clone())), rightChild: Some(Box::new(new_node)), parent: None };
-
-            self.root = new_root;
-            self.size *= 2;
-
-        }
-        1+1;
-    }*/
-
     /// Merkle tree creation function
     /// Input: A vector of data
     /// Output: a Merkle tree with the hashes of said data as its leaves
@@ -194,6 +104,9 @@ impl MerkleTree {
         self.unique_elements += 1;
     }
 
+    /// Auxiliary function to create a sort of subtree with no root
+    /// Input: a vector of hashes
+    /// Output: a subtree with those hashes as its leaves
     fn createLayers(hashes: Vec<HashValue>) -> Vec<Vec<HashValue>> {
         let mut current_layer = hashes.clone();
 
@@ -214,6 +127,35 @@ impl MerkleTree {
             current_layer = next_layer.clone();
         }
         layers
+    }
+
+    ///Creates a proof that an element is in the merkle tree
+    ///The root is all the hashes needed to reconstruct the root hash bottom up, while only having the hash of the element provided
+    ///Input: the element for which we want to create a proof
+    ///Output: the proof vector, or None if the element isn't present
+    pub fn createProof<T: Hash>(&self, elem: T) -> Option<Vec<HashValue>> {
+        // I look for the position of the element in the leaves array and pattern match on it
+        let element_index = self.findElement(elem);
+        if let Some(pos) = element_index {
+            let mut current_proof_elem_index = pos;
+            let mut proof: Vec<HashValue> = Vec::new();
+            //I go through the layers. Left children nodes have even indexes, and right children have odd ones
+            //I always want the node's brother's hash, since its what I need with the one I currently have to reach the root
+            //Hence if the index is even, I get the brother by adding one, and if it's odd, I get the brother by subtracting one
+            for layer in self.layers.iter() {
+                if current_proof_elem_index % 2 == 0 {
+                    proof.push(layer[current_proof_elem_index + 1]);
+                } else { proof.push(layer[current_proof_elem_index - 1]); }
+                current_proof_elem_index /= 2;
+            }
+            Some(proof)
+        } else { None }
+        //I return None if the element wasn't in the tree
+    }
+
+    fn findElement<T: Hash>(&self, elem:T) -> Option<usize> {
+        let index = self.layers[0].iter().position(|&r| r == hash(&elem));
+        index
     }
 }
 
@@ -363,6 +305,58 @@ mod tests {
         let root_hash = current_layer[0];
         assert_eq!(merkle_tree.root, root_hash);
         assert_eq!(merkle_tree.unique_elements, 4);
+    }
+
+    #[test]
+    fn can_generate_proof_for_element_in_even_index_in_leaves_array() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let proof = merkle_tree.createProof(15).unwrap();
+        let mut current_hash = hash(&15);
+
+        for i in (0..merkle_tree.layers.len()) {
+            current_hash = hash(&(current_hash as u128 + proof[i] as u128));
+        }
+        assert_eq!(merkle_tree.root, current_hash);
+    }
+
+    #[test]
+    fn can_generate_proof_for_element_in_odd_index_in_leaves_array() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let proof = merkle_tree.createProof(16).unwrap();
+        let mut current_hash = hash(&16);
+
+        for i in (0..merkle_tree.layers.len()) {
+            current_hash = hash(&(current_hash as u128 + proof[i] as u128));
+        }
+        assert_eq!(merkle_tree.root, current_hash);
+    }
+
+    #[test]
+    fn can_generate_proof_for_element_in_tree_with_repeats() {
+        let test_ints = vec![4,8,15];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let proof = merkle_tree.createProof(15).unwrap();
+        let mut current_hash = hash(&15);
+
+        for i in (0..merkle_tree.layers.len()) {
+            current_hash = hash(&(current_hash as u128 + proof[i] as u128));
+        }
+        assert_eq!(merkle_tree.root, current_hash);
+    }
+
+    #[test]
+    fn cant_generate_proof_for_element_not_in_tree() {
+        let test_ints = vec![4,8,15,16];
+        let merkle_tree = MerkleTree::new(test_ints.clone());
+
+        let proof = merkle_tree.createProof(23);
+
+        assert_eq!(proof, None);
     }
     /*
     #[test]
