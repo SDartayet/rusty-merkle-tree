@@ -6,7 +6,7 @@ type HashValue = u64;
 
 /// Merkle tree struct definition
 /// Root is distinguished for easier access and code legibility
-/// layers represents the up to the leaves
+/// layers represents the leaves and the intermediate nodes up to the layer before the root
 /// unique_elements represents the amount of non-repeated elements in the leaves
 struct MerkleTree {
     root: HashValue,
@@ -62,7 +62,7 @@ impl MerkleTree {
 
     /// Function that dynamically adds an element to the merkle tree
     /// Input: an element of a hashable type
-    /// Output: none, the tree is modified dybamically
+    /// Output: none, the tree is modified dynamically
     pub fn add_element<T: Hash>(&mut self, elem: T) {
         let leaves_count = self.layers[0].len();
 
@@ -113,7 +113,7 @@ impl MerkleTree {
         let mut layers: Vec<Vec<HashValue>> = Vec::new();
 
         // I go through each of the layers, starting with the leaves, and create the layer on top of it by adding the hashes of the two elements below, adding them, and hashing the sum
-        // I need to put them in the intermediate layers array in reverse order, so the smallest layer is on top
+        // I need to put them in the intermediate layers array in reverse order, so the smallest layer is at the end of the array
 
         for _i in 0..layers_amount {
             layers.push(current_layer.clone());
