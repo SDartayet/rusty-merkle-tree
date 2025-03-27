@@ -6,7 +6,7 @@ type HashValue = u64;
 
 /// Merkle tree struct definition
 /// Root is distinguished for easier access and code legibility
-/// layers represents the up to the leaves
+/// layers represents the layers from the leaves up to the layer before the root, with the leaves array being the first and the topmost layer the last
 /// unique_elements represents the amount of non-repeated elements in the leaves
 struct MerkleTree {
     root: HashValue,
