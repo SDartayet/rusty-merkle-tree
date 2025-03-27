@@ -13,6 +13,14 @@ Merkle Trees are used in peer-to-peer networks to verify the integrity of data. 
 
 ### Specifics of the project
 
+This implementation supports:
+- Creating a merkle tree from an array of any data, as long as said data is hashable
+- Dynamically adding new elements onto the tree
+- Creating a proof that an element is in the tree (provided it is), given an element
+- Verifying a proof an element is in the tree is valid, provided an element and a proof
+
+The tree is always balanced. When necessary, copies of the last element will be cloned to make the leaves array a power of 2. The proof is represented as an array of hashes with which, given the hash of the element the proof is for, the root can be reconstructed.
+
 #### Dependencies
 
 To build the project, you'll need:
