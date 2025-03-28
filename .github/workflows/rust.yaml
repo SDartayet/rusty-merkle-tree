@@ -22,4 +22,4 @@ jobs:
     - name: Run Clippy
       run: cargo clippy
     - name: Format
-      run: cargo format
+      run: cargo fmt
