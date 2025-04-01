@@ -3,7 +3,7 @@
 
 ### What is a Merkle Tree?
 
-A Merkle Tree is a data structure, very similar to a binary (or in some implementations, an n-ary) tree. Each leave in a merkle tree contains the hash to a block or partition of some data, while every inner node contains the hash of the hashes of its children.
+A Merkle Tree is a data structure, very similar to a binary (or in some implementations, an n-ary) tree. Each leaf in a merkle tree contains the hash to a block or partition of some data, while every inner node contains the hash of the hashes of its children.
 
 ![Illustration of the structure of a merkle tree, courtesy of https://en.wikipedia.org/wiki/Merkle_tree](https://en.wikipedia.org/wiki/Merkle_tree)
 
