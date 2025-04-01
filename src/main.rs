@@ -28,7 +28,7 @@ fn hash<T: Hash>(val: &T) -> HashValue {
 
 /// Calculates the closest power of 2 that's larger than the input
 /// Auxiliary function used for some operations over the tree
-fn closest_bigger_power_of2(num: f64) -> u32 {
+fn closest_bigger_power_of_2(num: f64) -> u32 {
     let exp = f64::log2(num).ceil();
     f64::powf(2.0, exp) as u32
 }
@@ -45,7 +45,7 @@ impl MerkleTree {
         // We achieve this by copying the last element the necessary amount of times to make the size of the leaves array a power of 2.
         let last_elem = *hashes.last().unwrap();
         let repetitions: u64 =
-            closest_bigger_power_of2(data.len() as f64) as u64 - data.len() as u64;
+            closest_bigger_power_of_2(data.len() as f64) as u64 - data.len() as u64;
         let last_elem_position = hashes.len();
         if repetitions > 0 {
             let mut last_elem_repetitions: Vec<HashValue> = vec![last_elem; repetitions as usize];
