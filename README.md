@@ -29,12 +29,6 @@ To build the project, you'll need:
 
 #### How to run
 
-To build the project, run
-'''
-make build
-'''
+To build the project, run ```make build```.
 
-To run the tests, run 
-'''
-make test
-'''
+To run the tests, run ```make test```.
