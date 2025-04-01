@@ -42,7 +42,7 @@ impl MerkleTree {
         let mut hashes: Vec<HashValue> = data.iter().map(|elem| hash(elem)).collect();
 
         // The amount of leaves always has to be a power of two so the tree remains balanced
-        // We achieve this by copying the last element the necessary amount of times to make the size of the leaves array a power of 23
+        // We achieve this by copying the last element the necessary amount of times to make the size of the leaves array a power of 2.
         let last_elem = *hashes.last().unwrap();
         let repetitions: u64 =
             closest_bigger_power_of2(data.len() as f64) as u64 - data.len() as u64;
